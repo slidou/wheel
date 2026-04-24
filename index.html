@@ -97,7 +97,7 @@
   }
   .card-title i { color: var(--accent); font-size: .9rem; }
 
-  .options-panel { max-height: 70vh; overflow-y: auto; }
+  .options-panel { max-height: 75vh; overflow-y: auto; }
   .options-panel::-webkit-scrollbar { width: 4px; }
   .options-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
@@ -178,6 +178,27 @@
     display: flex; align-items: center; justify-content: center; gap: 5px;
   }
   .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Boutons export/import — style distinct */
+  .backup-row {
+    display: flex; gap: 8px; margin-top: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .btn-backup {
+    flex: 1; padding: 10px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: inherit; font-size: .75rem;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    line-height: 1.3;
+  }
+  .btn-backup:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-backup i { font-size: .85rem; }
 
   .wheel-area {
     display: flex; flex-direction: column; align-items: center; gap: 24px;
@@ -260,7 +281,7 @@
     transform: none !important; box-shadow: none !important;
   }
 
-  .history-panel { max-height: 70vh; overflow-y: auto; }
+  .history-panel { max-height: 75vh; overflow-y: auto; }
   .history-panel::-webkit-scrollbar { width: 4px; }
   .history-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
@@ -404,6 +425,11 @@
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   .toast i { color: var(--success); }
+  .toast i.warn { color: var(--accent2); }
+  .toast i.err { color: var(--danger); }
+
+  /* Input file caché */
+  #importInput { display: none; }
 </style>
 </head>
 <body>
@@ -417,6 +443,9 @@
 <button class="sound-toggle" id="soundToggle" title="Son on/off">
   <i class="fas fa-volume-high"></i>
 </button>
+
+<!-- Input file caché pour l'import -->
+<input type="file" id="importInput" accept=".json">
 
 <div class="app">
   <header>
@@ -446,6 +475,16 @@
       <div class="actions-row">
         <button class="btn-sm" id="btnShuffle"><i class="fas fa-shuffle"></i> Mélanger</button>
         <button class="btn-sm" id="btnReset"><i class="fas fa-rotate-left"></i> Réinitialiser</button>
+      </div>
+
+      <!-- Export / Import -->
+      <div class="backup-row">
+        <button class="btn-backup" id="btnExport">
+          <i class="fas fa-download"></i> Exporter
+        </button>
+        <button class="btn-backup" id="btnImport">
+          <i class="fas fa-upload"></i> Importer
+        </button>
       </div>
     </div>
 
@@ -509,6 +548,9 @@ const PRESETS = {
 
 const DEFAULT_OPTIONS = ['Pizza', 'Sushi', 'Burger', 'Pâtes', 'Tacos', 'Salade'];
 
+// Version du format de sauvegarde pour compatibilité future
+const SAVE_VERSION = 1;
+
 // ============================================
 // PERSISTANCE LOCALSTORAGE
 // ============================================
@@ -524,7 +566,7 @@ function saveOptions() {
   try {
     localStorage.setItem(STORAGE_KEYS.options, JSON.stringify(options));
     flashSaveIndicator();
-  } catch (e) { /* localStorage plein ou bloqué */ }
+  } catch (e) {}
 }
 
 function loadOptions() {
@@ -549,16 +591,14 @@ function loadHistory() {
     const data = localStorage.getItem(STORAGE_KEYS.history);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) return parsed.slice(0, 100); // max 100 entrées
+      if (Array.isArray(parsed)) return parsed.slice(0, 100);
     }
   } catch (e) {}
   return [];
 }
 
 function saveSoundPref() {
-  try {
-    localStorage.setItem(STORAGE_KEYS.sound, soundEnabled ? '1' : '0');
-  } catch (e) {}
+  try { localStorage.setItem(STORAGE_KEYS.sound, soundEnabled ? '1' : '0'); } catch (e) {}
 }
 
 function loadSoundPref() {
@@ -570,29 +610,108 @@ function loadSoundPref() {
 }
 
 function saveAngle() {
-  try {
-    localStorage.setItem(STORAGE_KEYS.angle, currentAngle.toString());
-  } catch (e) {}
+  try { localStorage.setItem(STORAGE_KEYS.angle, currentAngle.toString()); } catch (e) {}
 }
 
 function loadAngle() {
   try {
     const val = localStorage.getItem(STORAGE_KEYS.angle);
-    if (val !== null) {
-      const num = parseFloat(val);
-      if (!isNaN(num)) return num;
-    }
+    if (val !== null) { const num = parseFloat(val); if (!isNaN(num)) return num; }
   } catch (e) {}
   return 0;
 }
 
-// Indicateur visuel de sauvegarde
+// Indicateur de sauvegarde
 let saveTimeout = null;
 function flashSaveIndicator() {
   const el = document.getElementById('saveIndicator');
   el.classList.add('show');
   clearTimeout(saveTimeout);
   saveTimeout = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ============================================
+// EXPORT / IMPORT FICHIER JSON
+// ============================================
+
+function exportData() {
+  // Tout regrouper dans un seul objet
+  const data = {
+    version: SAVE_VERSION,
+    exportedAt: new Date().toISOString(),
+    options: options,
+    history: history,
+    angle: currentAngle
+  };
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  // Nom de fichier avec la date pour s'y retrouver
+  const dateStr = new Date().toLocaleDateString('fr-FR', {
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).replace(/\//g, '-');
+  a.href = url;
+  a.download = `wheel-spin-backup-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast('Sauvegarde téléchargée', 'fa-check-circle');
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      // Validation minimale
+      if (!data.options || !Array.isArray(data.options) || data.options.length < 2) {
+        showToast('Fichier invalide : options manquantes', 'err', 'fa-triangle-exclamation');
+        return;
+      }
+
+      // Appliquer les données
+      options = data.options;
+
+      // Historique : vérifier le format, sinon tableau vide
+      if (Array.isArray(data.history)) {
+        history = data.history.filter(h => h.label && h.color).slice(0, 100);
+      } else {
+        history = [];
+      }
+
+      // Angle
+      if (typeof data.angle === 'number' && !isNaN(data.angle)) {
+        currentAngle = data.angle;
+      }
+
+      // Sauvegarder dans localStorage aussi
+      saveOptions();
+      saveHistory();
+      saveAngle();
+
+      // Rafraîchir l'affichage
+      renderOptions();
+      renderHistory();
+
+      // Message avec la date d'export si dispo
+      let msg = 'Données importées avec succès';
+      if (data.exportedAt) {
+        const d = new Date(data.exportedAt);
+        msg += ` (export du ${d.toLocaleDateString('fr-FR')})`;
+      }
+      showToast(msg, 'fa-check-circle');
+
+    } catch (err) {
+      showToast('Fichier invalide : ce n\'est pas du JSON', 'err', 'fa-triangle-exclamation');
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ============================================
@@ -605,7 +724,6 @@ let spinning = false;
 let currentAngle = loadAngle();
 let soundEnabled = loadSoundPref();
 
-// Mettre à jour l'icône du son au chargement
 document.querySelector('#soundToggle i').className =
   soundEnabled ? 'fas fa-volume-high' : 'fas fa-volume-xmark';
 
@@ -653,7 +771,7 @@ function playWin() {
 }
 
 // ============================================
-// CANVAS - ROUE
+// CANVAS
 // ============================================
 
 const canvas = document.getElementById('wheelCanvas');
@@ -702,7 +820,6 @@ function drawWheel(angle) {
     ctxC.lineWidth = 2;
     ctxC.stroke();
 
-    // Texte
     ctxC.save();
     ctxC.translate(cx, cy);
     ctxC.rotate(startA + sliceAngle / 2);
@@ -730,14 +847,12 @@ function drawWheel(angle) {
     ctxC.restore();
   }
 
-  // Anneau extérieur
   ctxC.beginPath();
   ctxC.arc(cx, cy, R, 0, Math.PI * 2);
   ctxC.strokeStyle = 'rgba(255,255,255,.08)';
   ctxC.lineWidth = 8;
   ctxC.stroke();
 
-  // Points décoratifs sur le bord
   for (let i = 0; i < n; i++) {
     const dotAngle = angle + i * sliceAngle;
     const dx = cx + Math.cos(dotAngle) * (R - 4);
@@ -750,12 +865,12 @@ function drawWheel(angle) {
 }
 
 // ============================================
-// ANIMATION SPIN
+// SPIN
 // ============================================
 
 function spinWheel() {
   if (spinning || options.length < 2) {
-    if (options.length < 2) showToast('Ajoute au moins 2 options pour tourner');
+    if (options.length < 2) showToast('Ajoute au moins 2 options pour tourner', 'warn', 'fa-triangle-exclamation');
     return;
   }
   spinning = true;
@@ -781,7 +896,6 @@ function spinWheel() {
     currentAngle = angle;
     drawWheel(angle);
 
-    // Détection du segment sous le pointeur (en haut = -PI/2)
     const pointerAngle = -Math.PI / 2;
     let normalizedAngle = (pointerAngle - angle) % (Math.PI * 2);
     if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
@@ -805,17 +919,14 @@ function spinWheel() {
       const result = options[currentSlice];
       const resultColor = SEGMENT_COLORS[currentSlice % SEGMENT_COLORS.length];
 
-      // Sauvegarder l'angle final
       saveAngle();
 
-      // Ajouter à l'historique avec horodatage
       history.unshift({
         label: result,
         color: resultColor,
         num: (history.length > 0 ? history[0].num : 0) + 1,
         time: Date.now()
       });
-      // Limiter à 100 entrées
       if (history.length > 100) history = history.slice(0, 100);
       saveHistory();
       renderHistory();
@@ -830,7 +941,7 @@ function spinWheel() {
 }
 
 // ============================================
-// MODAL RÉSULTAT
+// MODAL
 // ============================================
 
 function showResult(label, color) {
@@ -882,7 +993,6 @@ function formatTime(timestamp) {
   const diffH = Math.floor(diffMin / 60);
   if (diffH < 24) return `il y a ${diffH}h`;
 
-  // Plus d'un jour : afficher la date
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
@@ -911,14 +1021,13 @@ function clearHistory() {
   history = [];
   saveHistory();
   renderHistory();
-  showToast('Historique effacé', 'fa-trash-can');
+  showToast('Historique effacé', 'err', 'fa-trash-can');
 }
 
 // ============================================
 // OPTIONS
 // ============================================
 
-// Debounce pour la sauvegarde pendant la saisie
 let saveDebounce = null;
 function debouncedSaveOptions() {
   clearTimeout(saveDebounce);
@@ -948,7 +1057,7 @@ function renderOptions() {
     btn.addEventListener('click', () => {
       const idx = parseInt(btn.dataset.remove);
       if (options.length <= 2) {
-        showToast('Il faut au moins 2 options', 'fa-triangle-exclamation');
+        showToast('Il faut au moins 2 options', 'warn', 'fa-triangle-exclamation');
         return;
       }
       options.splice(idx, 1);
@@ -962,7 +1071,7 @@ function renderOptions() {
 
 function addOption() {
   if (options.length >= 20) {
-    showToast('Maximum 20 options atteint', 'fa-triangle-exclamation');
+    showToast('Maximum 20 options atteint', 'warn', 'fa-triangle-exclamation');
     return;
   }
   options.push('Option ' + (options.length + 1));
@@ -1009,12 +1118,12 @@ function loadPreset(name) {
 // ============================================
 
 let toastTimeout = null;
-function showToast(msg, icon) {
+function showToast(msg, iconClass, icon) {
   const toast = document.getElementById('toast');
-  toast.innerHTML = `<i class="fas ${icon || 'fa-check-circle'}"></i> ${msg}`;
+  toast.innerHTML = `<i class="fas ${icon || 'fa-check-circle'} ${iconClass || ''}"></i> ${msg}`;
   toast.classList.add('show');
   clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => toast.classList.remove('show'), 2200);
+  toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
 // ============================================
@@ -1040,6 +1149,19 @@ document.getElementById('resultOverlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) hideResult();
 });
 document.getElementById('btnClearHistory').addEventListener('click', clearHistory);
+
+// Export / Import
+document.getElementById('btnExport').addEventListener('click', exportData);
+document.getElementById('btnImport').addEventListener('click', () => {
+  document.getElementById('importInput').click();
+});
+document.getElementById('importInput').addEventListener('change', (e) => {
+  if (e.target.files.length > 0) {
+    importData(e.target.files[0]);
+    // Reset pour pouvoir re-importer le même fichier
+    e.target.value = '';
+  }
+});
 
 document.querySelectorAll('.preset-chip').forEach(chip => {
   chip.addEventListener('click', () => loadPreset(chip.dataset.preset));
