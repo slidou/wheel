@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Wheel Spin — roue de la fortune personnalisable : options, presets, sons, historique et sauvegarde automatique.">
+<meta name="theme-color" content="#0e0e12">
 <title>Wheel Spin — Roue de la Fortune</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎡</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous">
 <style>
   :root {
     --bg: #0e0e12;
-    --bg2: #16161d;
     --card: #1c1c26;
     --border: #2a2a38;
     --fg: #eaeaf0;
@@ -26,7 +27,7 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  button:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
+  button:disabled, input:disabled { opacity: .5; cursor: not-allowed; }
 
   body {
     font-family: 'Space Grotesk', sans-serif;
@@ -277,7 +278,7 @@
     filter: brightness(1.08);
   }
   .btn-spin:active { transform: translateY(0); }
-  .btn-spin:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-spin:disabled { cursor: not-allowed; }
 
   .history-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -569,7 +570,7 @@ function isValidColor(c) {
 
 function sanitizeOptions(arr) {
   if (!Array.isArray(arr)) return null;
-  const clean = arr.filter(o => typeof o === 'string').slice(0, 20);
+  const clean = arr.filter(o => typeof o === 'string' && o.trim() !== '').slice(0, 20);
   return clean.length >= 2 ? clean : null;
 }
 
@@ -738,6 +739,9 @@ function importData(file) {
       showToast('Fichier invalide : ce n\'est pas du JSON', 'error');
     }
   };
+  reader.onerror = function() {
+    showToast('Impossible de lire le fichier', 'error');
+  };
   reader.readAsText(file);
 }
 
@@ -760,6 +764,17 @@ let audioCtx = null;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
+}
+
+// Safari/iOS : le contexte audio démarre "suspended" hors interaction
+// utilisateur. On le (re)prend dans le geste (clic Tourner / activation son),
+// sinon le premier spin reste muet.
+function unlockAudio() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+  } catch (e) {}
 }
 
 function playTick() {
@@ -908,6 +923,7 @@ function spinWheel() {
     return;
   }
   spinning = true;
+  unlockAudio();
   setControlsDisabled(true);
   document.getElementById('btnSpin').disabled = true;
   canvas.classList.add('spinning');
@@ -988,8 +1004,11 @@ function showResult(label, color) {
   document.getElementById('resultValue').textContent = label;
   document.getElementById('resultColorBar').style.background = color;
   document.getElementById('resultOverlay').classList.add('show');
-  // Accessibilité : focus sur le bouton de fermeture à l'ouverture
-  document.getElementById('btnCloseResult').focus();
+  // Accessibilité : focus sur le bouton de fermeture à l'ouverture.
+  // Différé : au moment de l'ouverture l'overlay est encore en transition
+  // visibility:hidden → visible, et un élément non visible n'est pas
+  // focusable (le focus() synchrone échouerait silencieusement).
+  setTimeout(() => document.getElementById('btnCloseResult').focus(), 60);
 }
 
 function hideResult() {
@@ -1103,6 +1122,19 @@ function renderOptions() {
       drawWheel(currentAngle);
       debouncedSaveOptions();
     });
+
+    // À la sortie du champ : nettoie (trim) et resynchronise l'affichage
+    // avec la valeur réellement stockée (ex. champ vidé → "Option")
+    input.addEventListener('blur', (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      const cleaned = (options[idx] || '').trim() || 'Option';
+      if (cleaned !== options[idx]) {
+        options[idx] = cleaned;
+        drawWheel(currentAngle);
+        debouncedSaveOptions();
+      }
+      e.target.value = cleaned;
+    });
   });
 
   list.querySelectorAll('[data-remove]').forEach(btn => {
@@ -1208,7 +1240,10 @@ function updateSoundIcon() {
   const btn = document.getElementById('soundToggle');
   btn.querySelector('i').className =
     soundEnabled ? 'fas fa-volume-high' : 'fas fa-volume-xmark';
-  btn.setAttribute('aria-label', soundEnabled ? 'Désactiver le son' : 'Activer le son');
+  const label = soundEnabled ? 'Désactiver le son' : 'Activer le son';
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('title', label);
+  btn.setAttribute('aria-pressed', String(soundEnabled));
 }
 
 // ============================================
@@ -1222,6 +1257,13 @@ document.getElementById('btnReset').addEventListener('click', resetOptions);
 document.getElementById('btnCloseResult').addEventListener('click', hideResult);
 document.getElementById('resultOverlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) hideResult();
+});
+// Focus piégé dans la modale (un seul élément focusable : Fermer)
+document.getElementById('resultOverlay').addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    document.getElementById('btnCloseResult').focus();
+  }
 });
 document.getElementById('btnClearHistory').addEventListener('click', clearHistory);
 
@@ -1244,6 +1286,7 @@ document.querySelectorAll('.preset-chip').forEach(chip => {
 
 document.getElementById('soundToggle').addEventListener('click', () => {
   soundEnabled = !soundEnabled;
+  if (soundEnabled) unlockAudio();
   updateSoundIcon();
   saveSoundPref();
 });
