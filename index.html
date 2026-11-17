@@ -3,17 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Wheel Spin — roue de la fortune personnalisable : options, presets, sons, historique et sauvegarde automatique.">
-<meta name="theme-color" content="#0e0e12">
 <title>Wheel Spin — Roue de la Fortune</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎡</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha384-/o6I2CkkWC//PSjvWC/eYN7l3xM3tJm8ZzVkCOfp//W05QcE3mlGskpoHB6XqI+B" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Outfit:wght@700;800;900&amp;display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0e0e12;
+    --bg2: #16161d;
     --card: #1c1c26;
     --border: #2a2a38;
     --fg: #eaeaf0;
@@ -27,14 +26,13 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  button:disabled, input:disabled { opacity: .5; cursor: not-allowed; }
+  button:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
 
   body {
     font-family: 'Space Grotesk', sans-serif;
     background: var(--bg);
     color: var(--fg);
     min-height: 100vh;
-    overflow-x: hidden;
   }
 
   .bg-glow {
@@ -74,7 +72,8 @@
 
   .main-grid {
     display: grid;
-    grid-template-columns: 340px 1fr 280px;
+    grid-template-columns: 340px minmax(0, 1fr) 280px;
+    grid-template-areas: "options wheel history";
     gap: 28px;
     max-width: 1280px;
     width: 100%;
@@ -83,10 +82,10 @@
 
   @media (max-width: 1100px) {
     .main-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "wheel" "options" "history";
       max-width: 600px;
     }
-    .wheel-area { order: -1; }
   }
 
   .card {
@@ -103,8 +102,12 @@
   }
   .card-title i { color: var(--accent); font-size: .9rem; }
 
-  .options-panel { max-height: 75vh; overflow-y: auto; }
-  .history-panel { max-height: 75vh; overflow-y: auto; }
+  .options-panel { grid-area: options; }
+  .history-panel { grid-area: history; }
+  .wheel-area { grid-area: wheel; }
+  @media (min-width: 1101px) {
+    .options-panel, .history-panel { max-height: 75vh; overflow-y: auto; }
+  }
   .options-panel::-webkit-scrollbar, .history-panel::-webkit-scrollbar { width: 4px; }
   .options-panel::-webkit-scrollbar-thumb, .history-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
@@ -138,8 +141,8 @@
     padding: 9px 12px;
     color: var(--fg);
     font-family: inherit;
+    min-width: 0;
     font-size: .88rem;
-    outline: none;
     transition: border-color .2s;
   }
   .option-row input[type="text"]:focus { border-color: var(--accent); }
@@ -172,7 +175,7 @@
   }
   .btn-add:hover { border-color: var(--accent); color: var(--accent); }
 
-  .actions-row { display: flex; gap: 8px; margin-top: 14px; }
+  .actions-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
   .btn-sm {
     flex: 1; padding: 9px;
     border: 1px solid var(--border);
@@ -188,7 +191,7 @@
 
   /* Boutons export/import — style distinct */
   .backup-row {
-    display: flex; gap: 8px; margin-top: 12px;
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
     padding-top: 14px;
     border-top: 1px solid var(--border);
   }
@@ -219,17 +222,19 @@
 
   .wheel-canvas-wrap {
     position: absolute; inset: 0;
+    overflow: clip;
     display: flex; align-items: center; justify-content: center;
   }
 
-  #wheelCanvas {
-    width: 100%; height: 100%;
+  .wheel-canvas-wrap {
     filter: drop-shadow(0 0 40px rgba(255,107,53,.15));
     transition: filter .3s;
   }
-  #wheelCanvas.spinning {
+  .wheel-canvas-wrap.spinning {
     filter: drop-shadow(0 0 60px rgba(255,107,53,.3));
   }
+
+  #wheelCanvas { display: block; width: 100%; height: 100%; }
 
   .pointer {
     position: absolute;
@@ -278,7 +283,7 @@
     filter: brightness(1.08);
   }
   .btn-spin:active { transform: translateY(0); }
-  .btn-spin:disabled { cursor: not-allowed; }
+  .btn-spin:disabled { opacity: .5; cursor: not-allowed; }
 
   .history-list { display: flex; flex-direction: column; gap: 8px; }
 
@@ -291,13 +296,14 @@
     animation: fadeSlideIn .35s ease;
   }
   .history-item .h-num {
+    overflow: hidden;
     width: 26px; height: 26px;
     border-radius: 50%;
     background: var(--card); border: 1px solid var(--border);
     display: flex; align-items: center; justify-content: center;
     font-size: .7rem; color: var(--muted); font-weight: 600; flex-shrink: 0;
   }
-  .history-item .h-label { flex: 1; font-size: .88rem; font-weight: 500; }
+  .history-item .h-label { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .88rem; font-weight: 500; }
   .history-item .h-time { font-size: .68rem; color: var(--muted); white-space: nowrap; }
   .history-item .h-color {
     width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
@@ -319,33 +325,34 @@
     margin-top: 12px;
     display: flex; align-items: center; justify-content: center; gap: 6px;
   }
+  .btn-clear-history[hidden] { display: none; }
   .btn-clear-history:hover { border-color: var(--danger); color: var(--danger); }
 
-  /* visibility gère le focus des éléments cachés quand la modale est fermée */
   .result-overlay {
     position: fixed; inset: 0;
-    background: rgba(0,0,0,.7);
-    backdrop-filter: blur(8px);
-    z-index: 1000;
-    display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; visibility: hidden;
-    transition: opacity .4s, visibility .4s;
+    margin: auto; padding: 0; border: 0;
+    width: 100%; height: 100%; max-width: none; max-height: none;
+    background: transparent; color: var(--fg);
   }
-  .result-overlay.show { opacity: 1; pointer-events: auto; visibility: visible; }
+  .result-overlay[open] { display: grid; place-items: center; }
+  .result-overlay::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(8px); }
+  body:has(.result-overlay[open]) { overflow: hidden; }
 
   .result-modal {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 48px 40px;
+    padding: clamp(16px, 5vh, 48px) clamp(16px, 6vw, 40px);
     text-align: center;
     max-width: 400px; width: 90%;
-    transform: scale(.8) translateY(30px);
-    transition: transform .45s cubic-bezier(.175,.885,.32,1.275);
+    position: relative; z-index: 1;
+    max-height: calc(100% - 24px); overflow: auto;
+    animation: resultIn .45s cubic-bezier(.175,.885,.32,1.275);
   }
-  .result-overlay.show .result-modal { transform: scale(1) translateY(0); }
+  @keyframes resultIn { from { opacity: 0; transform: scale(.8) translateY(30px); } }
 
   .result-modal .result-label {
+    font-weight: 400;
     font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px;
   }
   .result-modal .result-value {
@@ -355,7 +362,7 @@
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
     margin-bottom: 28px;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
   .result-modal .result-color-bar {
     width: 60px; height: 5px; border-radius: 3px; margin: 0 auto 28px;
@@ -372,7 +379,7 @@
   .btn-close-result:hover { border-color: var(--accent); color: var(--accent); }
 
   .confetti-container {
-    position: fixed; inset: 0; z-index: 999; pointer-events: none; overflow: hidden;
+    position: fixed; inset: 0; pointer-events: none; overflow: hidden;
   }
   .confetti-piece {
     position: absolute;
@@ -417,7 +424,9 @@
     position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
     padding: 12px 24px; color: var(--fg); font-size: .85rem; z-index: 2000;
-    opacity: 0; transition: all .35s; pointer-events: none;
+    width: max-content; max-width: calc(100% - 24px);
+    overflow-wrap: anywhere;
+    opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none;
     display: flex; align-items: center; gap: 8px;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -425,11 +434,39 @@
   .toast i.warn { color: var(--accent2); }
   .toast i.err { color: var(--danger); }
 
+  button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent2);
+    outline-offset: 2px;
+  }
+  .storage-notice { color: var(--accent2); font-size: .8rem; }
+  .options-panel .storage-notice:not(:empty) { margin-bottom: 12px; }
+  .result-modal .storage-notice:not(:empty) { margin-bottom: 16px; }
+  /* Conserver les dimensions d'origine au pointeur précis et les cibles tactiles. */
+  @media (pointer: coarse) {
+    .btn-icon, .sound-toggle { width: 44px; height: 44px; }
+    .btn-add, .btn-sm, .btn-backup, .btn-clear-history, .preset-chip, .btn-close-result { min-height: 44px; }
+    .option-row input[type="text"] { font-size: 1rem; }
+  }
+
+  @media (max-width: 480px) {
+    .app { padding: 70px 12px 36px; }
+    .card { padding: 16px; }
+    .wheel-center { width: 44px; height: 44px; }
+  }
+
+  @media (max-width: 1100px) and (orientation: landscape) and (max-height: 500px) {
+    .app { padding-top: 16px; }
+    header { max-width: calc(100% - 108px); margin-bottom: 16px; }
+    .wheel-area { gap: 12px; }
+    .wheel-container { max-width: 55vh; }
+  }
+
   /* Input file caché */
   #importInput { display: none; }
 
   /* Respect des préférences de réduction d'animations */
   @media (prefers-reduced-motion: reduce) {
+    .bg-glow .orb { animation: none; }
     *, *::before, *::after {
       animation-duration: .01ms !important;
       animation-iteration-count: 1 !important;
@@ -442,14 +479,14 @@
 </head>
 <body>
 
-<div class="bg-glow">
+<div class="bg-glow" aria-hidden="true">
   <div class="orb orb1"></div>
   <div class="orb orb2"></div>
   <div class="orb orb3"></div>
 </div>
 
 <button class="sound-toggle" id="soundToggle" aria-label="Son">
-  <i class="fas fa-volume-high"></i>
+  <i class="fas fa-volume-high" aria-hidden="true"></i>
 </button>
 
 <!-- Input file caché pour l'import -->
@@ -461,14 +498,26 @@
     <p>Personnalise ta roue et laisse le hasard décider</p>
   </header>
 
-  <div class="main-grid">
+  <main class="main-grid">
 
-    <div class="card options-panel">
-      <div class="card-title"><i class="fas fa-sliders"></i> Options de la roue</div>
-      <div class="save-indicator" id="saveIndicator">
-        <i class="fas fa-check-circle"></i> Sauvegardé automatiquement
+    <div class="wheel-area">
+      <div class="wheel-container">
+        <div class="pointer" id="pointer" aria-hidden="true"></div>
+        <div class="wheel-canvas-wrap">
+          <canvas id="wheelCanvas" width="960" height="960" role="img" aria-label="Roue de la fortune"></canvas>
+        </div>
+        <div class="wheel-center"><i class="fas fa-star" aria-hidden="true"></i></div>
+      </div>
+      <button class="btn-spin" id="btnSpin">Tourner</button>
+    </div>
+
+    <section class="card options-panel" aria-labelledby="optionsTitle">
+      <h2 class="card-title" id="optionsTitle"><i class="fas fa-sliders" aria-hidden="true"></i> Options de la roue</h2>
+      <div class="save-indicator" id="saveIndicator" aria-hidden="true">
+        <i class="fas fa-check-circle" aria-hidden="true"></i> Sauvegardé automatiquement
       </div>
 
+      <p class="storage-notice" id="storageNotice" role="status"></p>
       <div class="presets-row">
         <button class="preset-chip" data-preset="yesno">Oui / Non</button>
         <button class="preset-chip" data-preset="numbers">1 à 6</button>
@@ -478,61 +527,51 @@
       </div>
 
       <div id="optionsList"></div>
-      <button class="btn-add" id="btnAdd"><i class="fas fa-plus"></i> Ajouter une option</button>
+      <button class="btn-add" id="btnAdd"><i class="fas fa-plus" aria-hidden="true"></i> Ajouter une option</button>
 
       <div class="actions-row">
-        <button class="btn-sm" id="btnShuffle"><i class="fas fa-shuffle"></i> Mélanger</button>
-        <button class="btn-sm" id="btnReset"><i class="fas fa-rotate-left"></i> Réinitialiser</button>
+        <button class="btn-sm" id="btnShuffle"><i class="fas fa-shuffle" aria-hidden="true"></i> Mélanger</button>
+        <button class="btn-sm" id="btnReset"><i class="fas fa-rotate-left" aria-hidden="true"></i> Réinitialiser</button>
       </div>
 
       <!-- Export / Import -->
       <div class="backup-row">
         <button class="btn-backup" id="btnExport">
-          <i class="fas fa-download"></i> Exporter
+          <i class="fas fa-download" aria-hidden="true"></i> Exporter
         </button>
         <button class="btn-backup" id="btnImport">
-          <i class="fas fa-upload"></i> Importer
+          <i class="fas fa-upload" aria-hidden="true"></i> Importer
         </button>
       </div>
-    </div>
+    </section>
 
-    <div class="wheel-area">
-      <div class="wheel-container">
-        <div class="pointer" id="pointer"></div>
-        <div class="wheel-canvas-wrap">
-          <canvas id="wheelCanvas" width="960" height="960" role="img" aria-label="Roue de la fortune"></canvas>
-        </div>
-        <div class="wheel-center"><i class="fas fa-star"></i></div>
-      </div>
-      <button class="btn-spin" id="btnSpin">Tourner</button>
-    </div>
-
-    <div class="card history-panel">
-      <div class="card-title"><i class="fas fa-clock-rotate-left"></i> Historique</div>
+    <section class="card history-panel" aria-labelledby="historyTitle">
+      <h2 class="card-title" id="historyTitle"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Historique</h2>
       <div class="history-list" id="historyList">
         <div class="empty-state">
-          <i class="fas fa-dice"></i>
+          <i class="fas fa-dice" aria-hidden="true"></i>
           Lance la roue pour voir les résultats ici
         </div>
       </div>
-      <button class="btn-clear-history" id="btnClearHistory" style="display:none">
-        <i class="fas fa-trash-can"></i> Effacer l'historique
+      <button class="btn-clear-history" id="btnClearHistory" hidden>
+        <i class="fas fa-trash-can" aria-hidden="true"></i> Effacer l'historique
       </button>
-    </div>
-  </div>
+    </section>
+  </main>
 </div>
 
-<div class="result-overlay" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+<dialog class="result-overlay" id="resultOverlay" aria-labelledby="resultTitle" aria-describedby="resultValue resultStorageNotice">
+  <div class="confetti-container" id="confettiContainer" aria-hidden="true"></div>
   <div class="result-modal">
-    <div class="result-label" id="resultTitle">Résultat</div>
+    <h2 class="result-label" id="resultTitle">Résultat</h2>
     <div class="result-value" id="resultValue"></div>
     <div class="result-color-bar" id="resultColorBar"></div>
-    <button class="btn-close-result" id="btnCloseResult">Fermer</button>
+    <p class="storage-notice" id="resultStorageNotice"></p>
+    <button class="btn-close-result" id="btnCloseResult" autofocus>Fermer</button>
   </div>
-</div>
+</dialog>
 
-<div class="confetti-container" id="confettiContainer"></div>
-<div class="toast" id="toast" aria-live="polite"></div>
+<div class="toast" id="toast" role="status" aria-atomic="true"></div>
 
 <script>
 // ============================================
@@ -558,6 +597,8 @@ const DEFAULT_OPTIONS = ['Pizza', 'Sushi', 'Burger', 'Pâtes', 'Tacos', 'Salade'
 
 // Version du format de sauvegarde pour compatibilité future
 const SAVE_VERSION = 1;
+const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
+const TURN = Math.PI * 2;
 
 // ============================================
 // VALIDATION / ASSAINISSEMENT DES DONNÉES
@@ -565,12 +606,12 @@ const SAVE_VERSION = 1;
 
 // Couleurs acceptées : #rgb, #rgba, #rrggbb, #rrggbbaa
 function isValidColor(c) {
-  return typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c);
+  return typeof c === 'string' && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(c);
 }
 
 function sanitizeOptions(arr) {
   if (!Array.isArray(arr)) return null;
-  const clean = arr.filter(o => typeof o === 'string' && o.trim() !== '').slice(0, 20);
+  const clean = arr.filter(option => typeof option === 'string').slice(0, SEGMENT_COLORS.length);
   return clean.length >= 2 ? clean : null;
 }
 
@@ -582,8 +623,8 @@ function sanitizeHistory(arr) {
     .map((h, i) => ({
       label: h.label,
       color: h.color,
-      num: Number.isFinite(h.num) ? h.num : i + 1,
-      time: Number.isFinite(h.time) ? h.time : Date.now()
+      num: Number.isSafeInteger(h.num) && h.num > 0 && h.num < Number.MAX_SAFE_INTEGER ? h.num : i + 1,
+      time: Number.isFinite(h.time) && Math.abs(h.time) <= 8.64e15 ? h.time : Date.now()
     }));
 }
 
@@ -598,58 +639,89 @@ const STORAGE_KEYS = {
   angle: 'wheelspin_angle'
 };
 
-function saveOptions() {
-  try {
-    localStorage.setItem(STORAGE_KEYS.options, JSON.stringify(options));
-    flashSaveIndicator();
-  } catch (e) {}
+const saved = {};
+const unsaved = new Set();
+const conflicts = new Set();
+const storageNotice = document.getElementById('storageNotice');
+const storageMessage = 'Certaines données restent dans cet onglet. Vérifie le stockage du navigateur ou exporte-les.';
+
+function updateStorageNotice() {
+  const message = conflicts.size
+    ? 'Des données ont changé dans un autre onglet. Exporte tes modifications avant de recharger.'
+    : unsaved.size ? storageMessage : '';
+  if (storageNotice.textContent !== message) storageNotice.textContent = message;
+  if (message) document.getElementById('saveIndicator').classList.remove('show');
 }
 
-function loadOptions() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.options);
-    if (data) return sanitizeOptions(JSON.parse(data));
-  } catch (e) {}
-  return null;
+for (const [name, key] of Object.entries(STORAGE_KEYS)) {
+  try { saved[name] = localStorage.getItem(key); }
+  catch { unsaved.add(name); }
 }
 
-function saveHistory() {
-  try {
-    localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(spinHistory));
-  } catch (e) {}
+function parseStored(raw) {
+  try { return JSON.parse(raw); }
+  catch { return null; }
 }
 
-function loadHistory() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEYS.history);
-    if (data) return sanitizeHistory(JSON.parse(data));
-  } catch (e) {}
-  return [];
+function parseAngle(raw) {
+  const angle = Number(raw);
+  return Number.isFinite(angle) ? angle % TURN : 0;
 }
 
-function saveSoundPref() {
-  try { localStorage.setItem(STORAGE_KEYS.sound, soundEnabled ? '1' : '0'); } catch (e) {}
-}
-
-function loadSoundPref() {
+function persist(changes, keepLocalOnFailure = true) {
+  const entries = Object.entries(changes);
+  const written = [];
+  const previous = {};
+  let conflict = false;
   try {
-    const val = localStorage.getItem(STORAGE_KEYS.sound);
-    if (val !== null) return val === '1';
-  } catch (e) {}
+    for (const [name] of entries) {
+      previous[name] = localStorage.getItem(STORAGE_KEYS[name]);
+      if (name !== 'angle' && Object.hasOwn(saved, name) && previous[name] !== saved[name]) {
+        if (keepLocalOnFailure) conflicts.add(name);
+        conflict = true;
+      }
+    }
+    if (conflict) {
+      updateStorageNotice();
+      return false;
+    }
+    for (const [name, raw] of entries) {
+      localStorage.setItem(STORAGE_KEYS[name], raw);
+      written.push([name, raw]);
+    }
+  } catch {
+    // Rétablir les clés déjà écrites si une écriture de l’import échoue.
+    for (const [name, raw] of written.reverse()) {
+      const key = STORAGE_KEYS[name];
+      try {
+        if (localStorage.getItem(key) !== raw) continue;
+        if (previous[name] === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, previous[name]);
+      } catch { conflicts.add(name); }
+    }
+    if (keepLocalOnFailure) {
+      for (const [name] of entries) unsaved.add(name);
+    }
+    updateStorageNotice();
+    return false;
+  }
+  for (const [name, raw] of entries) {
+    saved[name] = raw;
+    unsaved.delete(name);
+    conflicts.delete(name);
+  }
+  updateStorageNotice();
   return true;
 }
 
-function saveAngle() {
-  try { localStorage.setItem(STORAGE_KEYS.angle, currentAngle.toString()); } catch (e) {}
+function saveOptions() {
+  const previousNotice = storageNotice.textContent;
+  const ok = persist({ options: JSON.stringify(options) });
+  if (!ok && previousNotice !== storageNotice.textContent) showToast(storageNotice.textContent, 'warn');
+  if (ok && !storageNotice.textContent) flashSaveIndicator();
+  return ok;
 }
 
-function loadAngle() {
-  try {
-    const val = localStorage.getItem(STORAGE_KEYS.angle);
-    if (val !== null) { const num = parseFloat(val); if (!isNaN(num)) return num % (Math.PI * 2); }
-  } catch (e) {}
-  return 0;
-}
 
 // Indicateur de sauvegarde
 let saveTimeout = null;
@@ -688,73 +760,86 @@ function exportData() {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-  showToast('Sauvegarde téléchargée');
+  showToast('Téléchargement de la sauvegarde lancé');
 }
 
-function importData(file) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
+async function importData(file) {
+  if (spinning || importing || resultOverlay.open) return;
+  if (file.size > MAX_IMPORT_BYTES) {
+    showToast('Ce fichier dépasse la limite de 8 Mio', 'error');
+    return;
+  }
 
-      // Validation : options obligatoires, assainies avant usage
-      const importedOptions = sanitizeOptions(data.options);
-      if (!importedOptions) {
-        showToast('Fichier invalide : options manquantes', 'error');
-        return;
-      }
-      options = importedOptions;
-
-      // Historique : format vérifié (labels, couleurs), sinon tableau vide
-      spinHistory = sanitizeHistory(data.history);
-
-      // Angle
-      if (typeof data.angle === 'number' && !isNaN(data.angle)) {
-        currentAngle = data.angle % (Math.PI * 2);
-      }
-
-      // Sauvegarder dans localStorage aussi
-      saveOptions();
-      saveHistory();
-      saveAngle();
-
-      // Rafraîchir l'affichage
-      renderOptions();
-      renderHistory();
-
-      // Message avec infos de l'export si dispo
-      let msg = 'Données importées avec succès';
-      if (data.version && data.version > SAVE_VERSION) {
-        msg += ' — version de fichier plus récente';
-      }
-      if (data.exportedAt) {
-        const d = new Date(data.exportedAt);
-        msg += ` (export du ${d.toLocaleDateString('fr-FR')})`;
-      }
-      showToast(msg);
-
-    } catch (err) {
-      showToast('Fichier invalide : ce n\'est pas du JSON', 'error');
+  importing = true;
+  updateControls();
+  try {
+    let json;
+    try { json = await file.text(); }
+    catch {
+      showToast('Impossible de lire le fichier', 'error');
+      return;
     }
-  };
-  reader.onerror = function() {
-    showToast('Impossible de lire le fichier', 'error');
-  };
-  reader.readAsText(file);
+
+    let data;
+    try { data = JSON.parse(json); }
+    catch {
+      showToast('Le fichier ne contient pas de JSON valide', 'error');
+      return;
+    }
+
+    const nextOptions = sanitizeOptions(data?.options);
+    const nextHistory = sanitizeHistory(data?.history);
+    if (!nextOptions || nextOptions.length !== data.options.length ||
+        (data.history !== undefined && (!Array.isArray(data.history) || data.history.length !== nextHistory.length)) ||
+        (data.angle !== undefined && !Number.isFinite(data.angle))) {
+      showToast('Sauvegarde invalide : vérifie les options, l’historique et l’angle', 'error');
+      return;
+    }
+    if (!confirm('Remplacer les options et l’historique actuels par ceux du fichier ?')) return;
+
+    const nextAngle = data.angle === undefined ? currentAngle : parseAngle(data.angle);
+    if (!persist({
+      options: JSON.stringify(nextOptions),
+      history: JSON.stringify(nextHistory),
+      angle: String(nextAngle)
+    }, false)) {
+      showToast('Impossible d’enregistrer cet import', 'error');
+      return;
+    }
+
+    options = nextOptions;
+    spinHistory = nextHistory;
+    currentAngle = nextAngle;
+    renderOptions();
+    renderHistory();
+    let message = 'Sauvegarde importée';
+    if (data.version > SAVE_VERSION) message += ' (version plus récente)';
+    else if (typeof data.exportedAt === 'string') {
+      const date = new Date(data.exportedAt);
+      if (Number.isFinite(date.getTime())) message += ' (export du ' + date.toLocaleDateString('fr-FR') + ')';
+    }
+    showToast(message);
+  } finally {
+    importing = false;
+    updateControls();
+    document.getElementById('btnImport').focus();
+  }
 }
+
 
 // ============================================
 // ÉTAT
 // ============================================
 
-// Renommé "spinHistory" (l'ancien nom masquait window.history)
-let options = loadOptions() || [...DEFAULT_OPTIONS];
-let spinHistory = loadHistory();
+let options = sanitizeOptions(parseStored(saved.options)) || [...DEFAULT_OPTIONS];
+let spinHistory = sanitizeHistory(parseStored(saved.history));
 let spinning = false;
-let currentAngle = loadAngle();
-let soundEnabled = loadSoundPref();
+let importing = false;
+let currentAngle = parseAngle(saved.angle);
+let soundEnabled = saved.sound !== '0';
+
 
 // ============================================
 // AUDIO
@@ -766,21 +851,18 @@ function getAudioCtx() {
   return audioCtx;
 }
 
-// Safari/iOS : le contexte audio démarre "suspended" hors interaction
-// utilisateur. On le (re)prend dans le geste (clic Tourner / activation son),
-// sinon le premier spin reste muet.
-function unlockAudio() {
+function startAudio() {
   if (!soundEnabled) return;
   try {
     const ctx = getAudioCtx();
-    if (ctx.state === 'suspended') ctx.resume();
-  } catch (e) {}
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+  } catch {}
 }
 
 function playTick() {
-  if (!soundEnabled) return;
+  if (!soundEnabled || audioCtx?.state !== 'running') return;
   try {
-    const ctx = getAudioCtx();
+    const ctx = audioCtx;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
@@ -793,9 +875,9 @@ function playTick() {
 }
 
 function playWin() {
-  if (!soundEnabled) return;
+  if (!soundEnabled || audioCtx?.state !== 'running') return;
   try {
-    const ctx = getAudioCtx();
+    const ctx = audioCtx;
     [523, 659, 784, 1047].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -816,8 +898,37 @@ function playWin() {
 
 const canvas = document.getElementById('wheelCanvas');
 const ctxC = canvas.getContext('2d');
+const wheelWrap = canvas.parentElement;
+const pointer = document.getElementById('pointer');
+const spinButton = document.getElementById('btnSpin');
+const resultOverlay = document.getElementById('resultOverlay');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-function drawWheel(angle) {
+
+function labelText(label) {
+  return /\S/.test(label) ? label : 'Option';
+}
+
+function fitLabel(label, width) {
+  // Borner le travail sur les anciens imports contenant des textes longs.
+  const chars = Array.from(label.slice(0, 240)).slice(0, 120);
+  if (chars.join('') === label && ctxC.measureText(label).width <= width) return label;
+  let min = 0;
+  let max = chars.length;
+  while (min < max) {
+    const middle = Math.ceil((min + max) / 2);
+    if (ctxC.measureText(chars.slice(0, middle).join('') + '…').width <= width) min = middle;
+    else max = middle - 1;
+  }
+  return chars.slice(0, min).join('') + '…';
+}
+
+function rotateWheel(angle) {
+  canvas.style.transform = 'rotate(' + angle + 'rad)';
+}
+
+function drawWheel() {
+  if (!ctxC) return;
   const W = canvas.width;
   const H = canvas.height;
   const cx = W / 2;
@@ -827,27 +938,12 @@ function drawWheel(angle) {
   ctxC.clearRect(0, 0, W, H);
 
   const n = options.length;
-  if (n === 0) {
-    ctxC.beginPath();
-    ctxC.arc(cx, cy, R, 0, Math.PI * 2);
-    ctxC.fillStyle = '#1c1c26';
-    ctxC.fill();
-    ctxC.strokeStyle = '#2a2a38';
-    ctxC.lineWidth = 4;
-    ctxC.stroke();
-    ctxC.fillStyle = '#6e6e82';
-    ctxC.font = '600 28px "Space Grotesk"';
-    ctxC.textAlign = 'center'; ctxC.textBaseline = 'middle';
-    ctxC.fillText('Ajoute des options', cx, cy);
-    return;
-  }
-
-  const sliceAngle = (Math.PI * 2) / n;
+  const sliceAngle = TURN / n;
 
   for (let i = 0; i < n; i++) {
-    const startA = angle + i * sliceAngle;
+    const startA = i * sliceAngle;
     const endA = startA + sliceAngle;
-    const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length];
+    const color = SEGMENT_COLORS[i];
 
     ctxC.beginPath();
     ctxC.moveTo(cx, cy);
@@ -866,24 +962,17 @@ function drawWheel(angle) {
     ctxC.textAlign = 'right';
     ctxC.textBaseline = 'middle';
 
-    const label = options[i];
+    const label = labelText(options[i]);
     const maxTextWidth = R * 0.55;
-    let fontSize = Math.min(32, Math.max(16, sliceAngle * R * 0.18));
-    ctxC.font = `600 ${fontSize}px "Space Grotesk"`;
+    const fontSize = Math.min(32, Math.max(16, sliceAngle * R * 0.18));
+    ctxC.font = `600 ${fontSize}px "Space Grotesk", sans-serif`;
     ctxC.fillStyle = '#fff';
-
     ctxC.shadowColor = 'rgba(0,0,0,.5)';
     ctxC.shadowBlur = 6;
     ctxC.shadowOffsetX = 1;
     ctxC.shadowOffsetY = 1;
+    ctxC.fillText(fitLabel(label, maxTextWidth), R - 28, 0);
 
-    let displayLabel = label;
-    while (ctxC.measureText(displayLabel).width > maxTextWidth && displayLabel.length > 1) {
-      displayLabel = displayLabel.slice(0, -1);
-    }
-    if (displayLabel !== label) displayLabel += '…';
-
-    ctxC.fillText(displayLabel, R - 28, 0);
     ctxC.restore();
   }
 
@@ -894,7 +983,7 @@ function drawWheel(angle) {
   ctxC.stroke();
 
   for (let i = 0; i < n; i++) {
-    const dotAngle = angle + i * sliceAngle;
+    const dotAngle = i * sliceAngle;
     const dx = cx + Math.cos(dotAngle) * (R - 4);
     const dy = cy + Math.sin(dotAngle) * (R - 4);
     ctxC.beginPath();
@@ -908,143 +997,122 @@ function drawWheel(angle) {
 // SPIN
 // ============================================
 
-// Verrouille les contrôles pendant le spin (sinon modifier les options
-// en cours d'animation fausse le résultat final)
-function setControlsDisabled(disabled) {
+function updateControls() {
+  const busy = spinning || importing;
   document.querySelectorAll(
-    '#optionsList input, #optionsList button, #btnAdd, #btnShuffle, #btnReset, .preset-chip, #btnExport, #btnImport'
-  ).forEach(el => { el.disabled = disabled; });
+    '#optionsList input, #optionsList button, #btnAdd, #btnShuffle, #btnReset, .preset-chip, #btnExport, #btnImport, #btnClearHistory'
+  ).forEach(el => { el.disabled = busy; });
+  spinButton.disabled = busy;
+}
+
+function sliceAt(angle, n) {
+  const position = ((-Math.PI / 2 - angle) % TURN + TURN) % TURN;
+  return Math.floor(position / (TURN / n)) % n;
 }
 
 function spinWheel() {
-  if (spinning) return;
-  if (options.length < 2) {
-    showToast('Ajoute au moins 2 options pour tourner', 'warn');
+  if (spinning || importing || resultOverlay.open) return;
+  startAudio();
+  spinning = true;
+  updateControls();
+
+  const startAngle = currentAngle;
+  const totalRotation = TURN * (5 + Math.floor(Math.random() * 5) + Math.random());
+  const finalAngle = (startAngle + totalRotation) % TURN;
+  const count = options.length;
+  const winner = sliceAt(finalAngle, count);
+  let lastSlice = sliceAt(startAngle, count);
+  let tickTimer;
+
+  function finish() {
+    clearTimeout(tickTimer);
+    pointer.classList.remove('tick');
+    wheelWrap.classList.remove('spinning');
+    currentAngle = finalAngle;
+    rotateWheel(currentAngle);
+
+    const result = labelText(options[winner]);
+    const color = SEGMENT_COLORS[winner];
+    syncStorage('history');
+    spinHistory.unshift({ label: result, color, num: (spinHistory[0]?.num || 0) + 1, time: Date.now() });
+    if (spinHistory.length > 100) spinHistory.pop();
+    const savedResult = persist({ history: JSON.stringify(spinHistory) });
+    const savedAngle = persist({ angle: String(currentAngle) });
+
+    spinning = false;
+    updateControls();
+    renderHistory();
+    showResult(result, color, savedResult && savedAngle ? '' : storageNotice.textContent);
+    playWin();
+    launchConfetti(color);
+  }
+
+  if (reducedMotion.matches) {
+    finish();
     return;
   }
-  spinning = true;
-  unlockAudio();
-  setControlsDisabled(true);
-  document.getElementById('btnSpin').disabled = true;
-  canvas.classList.add('spinning');
 
-  const totalRotation = (Math.PI * 2 * (5 + Math.random() * 5)) + (Math.random() * Math.PI * 2);
+  wheelWrap.classList.add('spinning');
   const duration = 4000 + Math.random() * 2000;
-  const startAngle = currentAngle;
   const startTime = performance.now();
-  const n = options.length;
-  const sliceAngle = (Math.PI * 2) / n;
-  let lastSliceIndex = -1;
-
-  function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 
   function animate(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const easedProgress = easeOutQuart(progress);
-    const angle = startAngle + totalRotation * easedProgress;
+    const progress = Math.max(0, (now - startTime) / duration);
+    if (progress >= 1 || reducedMotion.matches) {
+      finish();
+      return;
+    }
 
-    currentAngle = angle;
-    drawWheel(angle);
-
-    const pointerAngle = -Math.PI / 2;
-    let normalizedAngle = (pointerAngle - angle) % (Math.PI * 2);
-    if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
-    const currentSlice = Math.floor(normalizedAngle / sliceAngle) % n;
-
-    if (currentSlice !== lastSliceIndex) {
-      lastSliceIndex = currentSlice;
+    const angle = startAngle + totalRotation * (1 - (1 - progress) ** 4);
+    rotateWheel(angle);
+    const slice = sliceAt(angle, count);
+    if (slice !== lastSlice) {
+      lastSlice = slice;
       playTick();
-      const pointer = document.getElementById('pointer');
       pointer.classList.add('tick');
-      setTimeout(() => pointer.classList.remove('tick'), 60);
+      clearTimeout(tickTimer);
+      tickTimer = setTimeout(() => pointer.classList.remove('tick'), 60);
     }
-
-    if (progress < 1) {
-      requestAnimationFrame(animate);
-    } else {
-      spinning = false;
-      setControlsDisabled(false);
-      document.getElementById('btnSpin').disabled = false;
-      canvas.classList.remove('spinning');
-
-      const result = options[currentSlice];
-      const resultColor = SEGMENT_COLORS[currentSlice % SEGMENT_COLORS.length];
-
-      // Normaliser l'angle pour éviter qu'il croisse indéfiniment
-      // (modulo 2π : même position visuelle, valeur stockée compacte)
-      currentAngle = currentAngle % (Math.PI * 2);
-      drawWheel(currentAngle);
-      saveAngle();
-
-      spinHistory.unshift({
-        label: result,
-        color: resultColor,
-        num: (spinHistory.length > 0 ? spinHistory[0].num : 0) + 1,
-        time: Date.now()
-      });
-      if (spinHistory.length > 100) spinHistory = spinHistory.slice(0, 100);
-      saveHistory();
-      renderHistory();
-
-      showResult(result, resultColor);
-      playWin();
-      launchConfetti(resultColor);
-    }
+    requestAnimationFrame(animate);
   }
-
   requestAnimationFrame(animate);
 }
+
 
 // ============================================
 // MODAL
 // ============================================
 
-function showResult(label, color) {
+function showResult(label, color, message) {
   document.getElementById('resultValue').textContent = label;
-  document.getElementById('resultColorBar').style.background = color;
-  document.getElementById('resultOverlay').classList.add('show');
-  // Accessibilité : focus sur le bouton de fermeture à l'ouverture.
-  // Différé : au moment de l'ouverture l'overlay est encore en transition
-  // visibility:hidden → visible, et un élément non visible n'est pas
-  // focusable (le focus() synchrone échouerait silencieusement).
-  setTimeout(() => document.getElementById('btnCloseResult').focus(), 60);
+  document.getElementById('resultColorBar').style.backgroundColor = color;
+  document.getElementById('resultStorageNotice').textContent = message;
+  resultOverlay.showModal();
 }
 
-function hideResult() {
-  const overlay = document.getElementById('resultOverlay');
-  if (!overlay.classList.contains('show')) return;
-  overlay.classList.remove('show');
-  // Rendre le focus au bouton principal
-  document.getElementById('btnSpin').focus();
-}
-
-// ============================================
-// CONFETTIS
-// ============================================
-
+const confetti = document.getElementById('confettiContainer');
+let confettiTimer;
 function launchConfetti(mainColor) {
-  // Pas de confettis si l'utilisateur préfère réduire les animations
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  const container = document.getElementById('confettiContainer');
+  if (reducedMotion.matches) return;
+  const pieces = document.createDocumentFragment();
   const colors = [mainColor, '#ffd23f', '#fff', '#06d6a0', '#ff6b35', '#7b2ff7'];
 
   for (let i = 0; i < 60; i++) {
     const piece = document.createElement('div');
-    piece.classList.add('confetti-piece');
+    piece.className = 'confetti-piece';
     piece.style.left = Math.random() * 100 + '%';
     piece.style.background = colors[Math.floor(Math.random() * colors.length)];
     piece.style.width = (6 + Math.random() * 8) + 'px';
     piece.style.height = (6 + Math.random() * 8) + 'px';
     piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
     piece.style.animationDuration = (1.5 + Math.random() * 2) + 's';
-    piece.style.animationDelay = (Math.random() * 0.6) + 's';
-    container.appendChild(piece);
-    // delay max (0.6s) + durée max (3.5s) = 4.1s → marge avec 5000ms
-    setTimeout(() => piece.remove(), 5000);
+    piece.style.animationDelay = (Math.random() * .6) + 's';
+    pieces.appendChild(piece);
   }
+  confetti.replaceChildren(pieces);
+  confettiTimer = setTimeout(() => confetti.replaceChildren(), 4200);
 }
+
 
 // ============================================
 // HISTORIQUE
@@ -1056,119 +1124,120 @@ function formatTime(timestamp) {
   const diffMs = now - d;
   const diffMin = Math.floor(diffMs / 60000);
 
-  if (diffMin < 1) return "à l'instant";
-  if (diffMin < 60) return `il y a ${diffMin}min`;
+  if (diffMin >= 0 && diffMin < 1) return "à l'instant";
+  if (diffMin >= 0 && diffMin < 60) return `il y a ${diffMin}min`;
 
   const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `il y a ${diffH}h`;
+  if (diffH >= 0 && diffH < 24) return `il y a ${diffH}h`;
 
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  const btn = document.getElementById('btnClearHistory');
 
-  if (spinHistory.length === 0) {
-    list.innerHTML = '<div class="empty-state"><i class="fas fa-dice"></i>Lance la roue pour voir les résultats ici</div>';
-    btn.style.display = 'none';
+function makeElement(tag, className, text) {
+  const element = document.createElement(tag);
+  element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+}
+
+function makeIcon(name, className = '') {
+  const icon = makeElement('i', 'fas ' + name + (className ? ' ' + className : ''));
+  icon.setAttribute('aria-hidden', 'true');
+  return icon;
+}
+
+const historyList = document.getElementById('historyList');
+const clearButton = document.getElementById('btnClearHistory');
+const emptyHistory = historyList.firstElementChild;
+
+function renderHistory() {
+  clearButton.hidden = spinHistory.length === 0;
+  if (clearButton.hidden) {
+    historyList.replaceChildren(emptyHistory);
     return;
   }
 
-  btn.style.display = 'flex';
-  list.innerHTML = spinHistory.map(h => `
-    <div class="history-item">
-      <div class="h-num">${h.num}</div>
-      <div class="h-label">${escapeHtml(h.label)}</div>
-      <div class="h-time">${formatTime(h.time)}</div>
-      <div class="h-color" style="background:${h.color}"></div>
-    </div>
-  `).join('');
+  historyList.replaceChildren(...spinHistory.map(item => {
+    const row = makeElement('div', 'history-item');
+    const number = makeElement('div', 'h-num', item.num);
+    const label = makeElement('div', 'h-label', labelText(item.label));
+    const time = makeElement('time', 'h-time', formatTime(item.time));
+    time.dateTime = new Date(item.time).toISOString();
+    const color = makeElement('div', 'h-color');
+    color.style.backgroundColor = item.color;
+    row.append(number, label, time, color);
+    return row;
+  }));
 }
 
 function clearHistory() {
+  if (!confirm('Effacer tout l’historique des tirages ?')) return;
+  if (!persist({ history: '[]' }, false)) {
+    showToast('Impossible d’effacer l’historique enregistré', 'error');
+    return;
+  }
   spinHistory = [];
-  saveHistory();
   renderHistory();
-  showToast('Historique effacé', 'error', 'fa-trash-can');
+  spinButton.focus();
+  showToast('Historique effacé');
 }
 
 // ============================================
 // OPTIONS
 // ============================================
 
-let saveDebounce = null;
-function debouncedSaveOptions() {
-  clearTimeout(saveDebounce);
-  saveDebounce = setTimeout(saveOptions, 400);
-}
+const optionsList = document.getElementById('optionsList');
 
 function renderOptions() {
-  const list = document.getElementById('optionsList');
-  list.innerHTML = options.map((opt, i) => `
-    <div class="option-row">
-      <div class="color-dot" style="background:${SEGMENT_COLORS[i % SEGMENT_COLORS.length]}"></div>
-      <input type="text" value="${escapeHtml(opt)}" data-index="${i}" maxlength="40" aria-label="Option ${i + 1}">
-      <button class="btn-icon" data-remove="${i}" title="Supprimer" aria-label="Supprimer l'option ${i + 1}">
-        <i class="fas fa-xmark"></i>
-      </button>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('input[type="text"]').forEach(input => {
-    input.addEventListener('input', (e) => {
-      const idx = parseInt(e.target.dataset.index);
-      options[idx] = e.target.value || 'Option';
-      drawWheel(currentAngle);
-      debouncedSaveOptions();
+  optionsList.replaceChildren(...options.map((option, index) => {
+    const row = makeElement('div', 'option-row');
+    const color = makeElement('div', 'color-dot');
+    color.style.backgroundColor = SEGMENT_COLORS[index];
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = option;
+    input.placeholder = 'Option';
+    input.maxLength = 40;
+    input.setAttribute('aria-label', 'Option ' + (index + 1));
+    input.addEventListener('input', () => {
+      options[index] = input.value;
+      saveOptions();
+      drawWheel();
     });
 
-    // À la sortie du champ : nettoie (trim) et resynchronise l'affichage
-    // avec la valeur réellement stockée (ex. champ vidé → "Option")
-    input.addEventListener('blur', (e) => {
-      const idx = parseInt(e.target.dataset.index);
-      const cleaned = (options[idx] || '').trim() || 'Option';
-      if (cleaned !== options[idx]) {
-        options[idx] = cleaned;
-        drawWheel(currentAngle);
-        debouncedSaveOptions();
-      }
-      e.target.value = cleaned;
-    });
-  });
-
-  list.querySelectorAll('[data-remove]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.remove);
+    const remove = makeElement('button', 'btn-icon');
+    remove.title = 'Supprimer';
+    remove.setAttribute('aria-label', 'Supprimer l’option ' + (index + 1));
+    remove.append(makeIcon('fa-xmark'));
+    remove.addEventListener('click', () => {
       if (options.length <= 2) {
         showToast('Il faut au moins 2 options', 'warn');
         return;
       }
-      options.splice(idx, 1);
+      options.splice(index, 1);
       renderOptions();
       saveOptions();
+      optionsList.children[Math.min(index, options.length - 1)].querySelector('button').focus();
     });
-  });
-
-  drawWheel(currentAngle);
+    row.append(color, input, remove);
+    return row;
+  }));
+  drawWheel();
+  rotateWheel(currentAngle);
 }
 
 function addOption() {
-  if (options.length >= 20) {
+  if (options.length >= SEGMENT_COLORS.length) {
     showToast('Maximum 20 options atteint', 'warn');
     return;
   }
   options.push('Option ' + (options.length + 1));
   renderOptions();
   saveOptions();
-  setTimeout(() => {
-    const inputs = document.querySelectorAll('#optionsList input[type="text"]');
-    if (inputs.length) {
-      const last = inputs[inputs.length - 1];
-      last.focus();
-      last.select();
-    }
-  }, 50);
+  const input = optionsList.lastElementChild.querySelector('input');
+  input.focus();
+  input.select();
 }
 
 function shuffleOptions() {
@@ -1177,148 +1246,134 @@ function shuffleOptions() {
     [options[i], options[j]] = [options[j], options[i]];
   }
   renderOptions();
-  saveOptions();
-  showToast('Options mélangées', 'success', 'fa-shuffle');
+  if (saveOptions()) showToast('Options mélangées');
 }
 
-function resetOptions() {
-  options = [...DEFAULT_OPTIONS];
+function replaceOptions(next, message) {
+  if (options.length === next.length && options.every((option, index) => option === next[index])) return;
+  if (!confirm('Remplacer les options actuelles ?')) return;
+  options = [...next];
   renderOptions();
-  saveOptions();
-  showToast('Options réinitialisées', 'success', 'fa-rotate-left');
-}
-
-function loadPreset(name) {
-  if (PRESETS[name]) {
-    options = [...PRESETS[name]];
-    renderOptions();
-    saveOptions();
-    showToast('Preset chargé', 'success', 'fa-check');
-  }
+  if (saveOptions()) showToast(message);
 }
 
 // ============================================
-// TOAST (construit en DOM, pas d'innerHTML → pas d'injection possible)
+// INTERFACE ET SYNCHRONISATION
 // ============================================
 
-const TOAST_DEFAULT_ICONS = {
-  success: 'fa-check-circle',
-  warn: 'fa-triangle-exclamation',
-  error: 'fa-triangle-exclamation'
-};
-
-let toastTimeout = null;
-function showToast(msg, type = 'success', faIcon) {
+let toastTimeout;
+function showToast(message, type = 'success') {
   const toast = document.getElementById('toast');
-  const icon = document.createElement('i');
-  icon.className = 'fas ' + (faIcon || TOAST_DEFAULT_ICONS[type] || TOAST_DEFAULT_ICONS.success);
-  if (type === 'warn') icon.classList.add('warn');
-  if (type === 'error') icon.classList.add('err');
-  const text = document.createElement('span');
-  text.textContent = msg;
-  toast.replaceChildren(icon, text);
+  const icon = makeIcon(type === 'success' ? 'fa-check-circle' : 'fa-triangle-exclamation', { warn: 'warn', error: 'err' }[type]);
+  toast.replaceChildren(icon, makeElement('span', '', message));
   toast.classList.add('show');
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
 }
 
-// ============================================
-// UTILITAIRES
-// ============================================
-
-// Échappement complet, y compris les guillemets (utilisé dans des attributs HTML)
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function updateSoundIcon() {
-  const btn = document.getElementById('soundToggle');
-  btn.querySelector('i').className =
-    soundEnabled ? 'fas fa-volume-high' : 'fas fa-volume-xmark';
-  const label = soundEnabled ? 'Désactiver le son' : 'Activer le son';
-  btn.setAttribute('aria-label', label);
-  btn.setAttribute('title', label);
-  btn.setAttribute('aria-pressed', String(soundEnabled));
+  const button = document.getElementById('soundToggle');
+  button.querySelector('i').className = soundEnabled ? 'fas fa-volume-high' : 'fas fa-volume-xmark';
+  button.setAttribute('aria-label', soundEnabled ? 'Désactiver le son' : 'Activer le son');
+}
+
+function syncStorage(name) {
+  // Conserver les modifications de cet onglet si elles n’ont pas pu être écrites.
+  if (unsaved.has(name) || conflicts.has(name)) return;
+  if ((spinning || resultOverlay.open) && (name === 'options' || name === 'angle')) return;
+
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEYS[name]); }
+  catch { return; }
+  if (raw === saved[name]) return;
+  saved[name] = raw;
+
+  if (name === 'history') {
+    spinHistory = sanitizeHistory(parseStored(raw));
+    renderHistory();
+  } else if (name === 'options') {
+    const focusedIndex = [...optionsList.children].findIndex(row => row.contains(document.activeElement));
+    const control = document.activeElement?.localName;
+    options = sanitizeOptions(parseStored(raw)) || [...DEFAULT_OPTIONS];
+    renderOptions();
+    if (focusedIndex >= 0) optionsList.children[Math.min(focusedIndex, options.length - 1)].querySelector(control).focus();
+    updateControls();
+  } else if (name === 'sound') {
+    soundEnabled = raw !== '0';
+    updateSoundIcon();
+  } else if (name === 'angle') {
+    currentAngle = parseAngle(raw);
+    rotateWheel(currentAngle);
+  }
 }
 
 // ============================================
-// ÉVÉNEMENTS
+// ÉVÉNEMENTS ET INITIALISATION
 // ============================================
 
-document.getElementById('btnSpin').addEventListener('click', spinWheel);
+spinButton.addEventListener('click', spinWheel);
 document.getElementById('btnAdd').addEventListener('click', addOption);
 document.getElementById('btnShuffle').addEventListener('click', shuffleOptions);
-document.getElementById('btnReset').addEventListener('click', resetOptions);
-document.getElementById('btnCloseResult').addEventListener('click', hideResult);
-document.getElementById('resultOverlay').addEventListener('click', (e) => {
-  if (e.target === e.currentTarget) hideResult();
+document.getElementById('btnReset').addEventListener('click', () => replaceOptions(DEFAULT_OPTIONS, 'Options réinitialisées'));
+document.getElementById('btnCloseResult').addEventListener('click', () => resultOverlay.close());
+resultOverlay.addEventListener('click', (event) => {
+  if (event.target === resultOverlay) resultOverlay.close();
 });
-// Focus piégé dans la modale (un seul élément focusable : Fermer)
-document.getElementById('resultOverlay').addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    document.getElementById('btnCloseResult').focus();
-  }
+resultOverlay.addEventListener('close', () => {
+  clearTimeout(confettiTimer);
+  confetti.replaceChildren();
+  syncStorage('options');
+  syncStorage('angle');
+  spinButton.focus();
 });
-document.getElementById('btnClearHistory').addEventListener('click', clearHistory);
+clearButton.addEventListener('click', clearHistory);
 
-// Export / Import
 document.getElementById('btnExport').addEventListener('click', exportData);
-document.getElementById('btnImport').addEventListener('click', () => {
-  document.getElementById('importInput').click();
-});
-document.getElementById('importInput').addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    importData(e.target.files[0]);
-    // Reset pour pouvoir re-importer le même fichier
-    e.target.value = '';
-  }
+const importInput = document.getElementById('importInput');
+document.getElementById('btnImport').addEventListener('click', () => importInput.click());
+importInput.addEventListener('change', () => {
+  const file = importInput.files[0];
+  importInput.value = '';
+  if (file) importData(file);
 });
 
 document.querySelectorAll('.preset-chip').forEach(chip => {
-  chip.addEventListener('click', () => loadPreset(chip.dataset.preset));
+  chip.addEventListener('click', () => replaceOptions(PRESETS[chip.dataset.preset], 'Modèle chargé'));
 });
 
 document.getElementById('soundToggle').addEventListener('click', () => {
   soundEnabled = !soundEnabled;
-  if (soundEnabled) unlockAudio();
   updateSoundIcon();
-  saveSoundPref();
-});
-
-document.addEventListener('keydown', (e) => {
-  // Espace : lance la roue, sauf si elle tourne déjà, si la modale
-  // de résultat est ouverte, ou si le focus est sur un champ/bouton
-  // (pour laisser son rôle par défaut à Espace sur ces éléments)
-  const active = document.activeElement;
-  const inField = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'BUTTON');
-  const modalOpen = document.getElementById('resultOverlay').classList.contains('show');
-
-  if (e.code === 'Space' && !spinning && !modalOpen && !inField) {
-    e.preventDefault();
-    spinWheel();
+  startAudio();
+  if (!persist({ sound: soundEnabled ? '1' : '0' })) {
+    showToast('Préférence de son non enregistrée', 'warn');
   }
-  if (e.code === 'Escape') hideResult();
 });
 
-// ============================================
-// INIT
-// ============================================
+document.addEventListener('keydown', (event) => {
+  if (event.code !== 'Space' || event.defaultPrevented || event.isComposing ||
+      event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || resultOverlay.open) return;
+  if (event.target.closest?.('input, textarea, button, a, [contenteditable]')) return;
+  event.preventDefault();
+  if (!event.repeat) spinWheel();
+});
+
+window.addEventListener('storage', (event) => {
+  if (event.storageArea !== localStorage) return;
+  for (const [name, key] of Object.entries(STORAGE_KEYS)) {
+    if (event.key === key || event.key === null) syncStorage(name);
+  }
+});
 
 updateSoundIcon();
+updateStorageNotice();
 renderOptions();
 renderHistory();
 
-// Redessiner la roue une fois les polices chargées
-// (sinon le premier rendu canvas utilise la police de substitution)
-if (document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(() => drawWheel(currentAngle));
+if (!ctxC) {
+  canvas.replaceWith(makeElement('p', 'storage-notice', 'Aperçu de la roue indisponible. Les tirages restent accessibles.'));
 }
+if (document.fonts) document.fonts.ready.then(drawWheel);
 </script>
 </body>
 </html>
